@@ -16,6 +16,7 @@
 
 package xyz.belvi.mobilevisionbarcodesample;
 
+import android.Manifest;
 import android.os.Bundle;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
@@ -28,9 +29,12 @@ import android.widget.CheckBox;
 import com.google.android.gms.samples.vision.barcodereader.BarcodeCapture;
 import com.google.android.gms.samples.vision.barcodereader.BarcodeGraphic;
 import com.google.android.gms.vision.barcode.Barcode;
+import com.tbruyelle.rxpermissions2.Permission;
+import com.tbruyelle.rxpermissions2.RxPermissions;
 
 import java.util.List;
 
+import io.reactivex.functions.Consumer;
 import xyz.belvi.mobilevisionbarcodescanner.BarcodeRetriever;
 
 import static xyz.belvi.mobilevisionbarcodesample.R.id.barcode;
@@ -46,6 +50,9 @@ public class MainActivity extends AppCompatActivity implements BarcodeRetriever 
 
     private static final String TAG = "BarcodeMain";
 
+    // permission request codes need to be < 256
+    private static final int RC_HANDLE_CAMERA_PERM = 2;
+
     CheckBox fromXMl;
     SwitchCompat drawRect, autoFocus, supportMultiple, touchBack, drawText;
 
@@ -54,7 +61,7 @@ public class MainActivity extends AppCompatActivity implements BarcodeRetriever 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-
+        requestCameraPermission();
 
         final BarcodeCapture barcodeCapture = (BarcodeCapture) getSupportFragmentManager().findFragmentById(barcode);
         barcodeCapture.setRetrieval(this);
@@ -84,6 +91,27 @@ public class MainActivity extends AppCompatActivity implements BarcodeRetriever 
 
     }
 
+    /**
+     * Handles the requesting of the camera permission.  This includes
+     * showing a "Snackbar" message of why the permission is needed then
+     * sending the request.
+     */
+    private void requestCameraPermission() {
+        RxPermissions rxPermissions = new RxPermissions(this);
+        rxPermissions.requestEach(Manifest.permission.CAMERA)
+                .subscribe(new Consumer<Permission>() {
+                    @Override
+                    public void accept(Permission permission) throws Exception {
+                        if (permission.granted) {
+                            BarcodeCapture barcodeCapture = (BarcodeCapture) getSupportFragmentManager().findFragmentById(barcode);
+                            barcodeCapture.cameraPermissionGranted();
+                            Log.w(TAG, "Granted");
+                        } else {
+                            Log.w(TAG, "Camera permission not granted!");
+                        }
+                    }
+                });
+    }
 
     @Override
     public void onRetrieved(final Barcode barcode) {
@@ -97,8 +125,6 @@ public class MainActivity extends AppCompatActivity implements BarcodeRetriever 
                 builder.show();
             }
         });
-
-
     }
 
     @Override
@@ -118,18 +144,13 @@ public class MainActivity extends AppCompatActivity implements BarcodeRetriever 
                 builder.show();
             }
         });
-
     }
 
     @Override
     public void onBitmapScanned(SparseArray<Barcode> sparseArray) {
-
     }
 
     @Override
     public void onRetrievedFailed(String reason) {
-
     }
-
-
 }

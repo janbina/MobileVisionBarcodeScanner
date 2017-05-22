@@ -24,9 +24,8 @@ import android.content.pm.PackageManager;
 import android.hardware.Camera;
 import android.os.Build;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.util.Log;
 import android.view.GestureDetector;
 import android.view.LayoutInflater;
@@ -44,12 +43,10 @@ import com.google.android.gms.samples.vision.barcodereader.ui.camera.GraphicOver
 import com.google.android.gms.vision.MultiProcessor;
 import com.google.android.gms.vision.barcode.Barcode;
 import com.google.android.gms.vision.barcode.BarcodeDetector;
-import com.tbruyelle.rxpermissions2.RxPermissions;
 
 import java.io.IOException;
 import java.util.ArrayList;
 
-import io.reactivex.functions.Consumer;
 import xyz.belvi.mobilevisionbarcodescanner.BarcodeFragment;
 import xyz.belvi.mobilevisionbarcodescanner.R;
 
@@ -63,9 +60,6 @@ public final class BarcodeCapture extends BarcodeFragment {
 
     // intent request code to handle updating play services if needed.
     private static final int RC_HANDLE_GMS = 9001;
-
-    // permission request codes need to be < 256
-    private static final int RC_HANDLE_CAMERA_PERM = 2;
 
     public static final String BarcodeObject = "Barcode";
 
@@ -96,8 +90,10 @@ public final class BarcodeCapture extends BarcodeFragment {
 
         // read parameters from the intent used to launch the activity.
 
-
-        requestCameraPermission();
+        if (ContextCompat.checkSelfPermission(getActivity(), Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED) {
+            createCameraSource(isAutoFocus(), isShowFlash());
+        }
 
         gestureDetector = new GestureDetector(getContext(), new CaptureGestureListener());
         scaleGestureDetector = new ScaleGestureDetector(getContext(), new ScaleListener());
@@ -115,26 +111,14 @@ public final class BarcodeCapture extends BarcodeFragment {
         return rootView;
     }
 
-
-    /**
-     * Handles the requesting of the camera permission.  This includes
-     * showing a "Snackbar" message of why the permission is needed then
-     * sending the request.
-     */
-    private void requestCameraPermission() {
-        RxPermissions rxPermissions = new RxPermissions(getActivity());
-        rxPermissions.request(Manifest.permission.CAMERA)
-                .subscribe(new Consumer<Boolean>() {
-
-                    @Override
-                    public void accept(Boolean granted) throws Exception {
-                        if (granted) {
-                            createCameraSource(isAutoFocus(), isShowFlash());
-                        }
-                    }
-                });
+    public void cameraPermissionGranted() {
+        if (ContextCompat.checkSelfPermission(getActivity(), Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED) {
+            createCameraSource(isAutoFocus(), isShowFlash());
+        } else {
+            throw new RuntimeException("CameraPersmissionGranted called, but the camera permission is not granted.");
+        }
     }
-    
 
     /**
      * Creates and starts the camera.  Note that this uses a higher resolution in comparison
@@ -251,43 +235,6 @@ public final class BarcodeCapture extends BarcodeFragment {
         if (mPreview != null) {
             mPreview.release();
         }
-    }
-
-    /**
-     * Callback for the result from requesting permissions. This method
-     * is invoked for every call on {@link #requestPermissions(String[], int)}.
-     * <p>
-     * <strong>Note:</strong> It is possible that the permissions request interaction
-     * with the user is interrupted. In this case you will receive empty permissions
-     * and results arrays which should be treated as a cancellationt
-     * </p>
-     *
-     * @param requestCode  The request code passed in {@link #requestPermissions(String[], int)}.
-     * @param permissions  The requested permissions. Never null.
-     * @param grantResults The grant results for the corresponding permissions
-     *                     which is either {@link PackageManager#PERMISSION_GRANTED}
-     *                     or {@link PackageManager#PERMISSION_DENIED}. Never null.
-     * @see #requestPermissions(String[], int)
-     */
-    @Override
-    public void onRequestPermissionsResult(int requestCode,
-                                           @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
-        if (requestCode != RC_HANDLE_CAMERA_PERM) {
-            Log.d(TAG, "Got unexpected permission result: " + requestCode);
-            super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-            return;
-        }
-
-        if (grantResults.length != 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            Log.d(TAG, "Camera permission granted - initialize the camera source");
-            // we have permission, so create the camerasource
-            createCameraSource(isAutoFocus(), isShowFlash());
-            return;
-        }
-
-        barcodeRetriever.onRetrievedFailed(getString(R.string.no_camera_permission));
-
     }
 
     /**
